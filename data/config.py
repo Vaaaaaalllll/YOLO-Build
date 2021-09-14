@@ -105,20 +105,6 @@ class Config(object):
 
 # ----------------------- DATASETS ----------------------- #
 
-building_Map_dataset = dataset_base.copy({
-  'name': 'Sattelite - Builidng Mapping',
-
-  'train_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train.json',
-  'train_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train/',
-
-  'valid_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test.json',
-  'valid_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test/',
-
-  'class_names': ('building'),
-  'label_map': { 1:  1 }
-})
-
-
 dataset_base = Config({
     'name': 'Base Dataset',
 
@@ -184,6 +170,20 @@ pascal_sbd_dataset = dataset_base.copy({
     'valid_info': './data/sbd/pascal_sbd_val.json',
 
     'class_names': PASCAL_CLASSES,
+})
+
+
+building_Map_dataset = dataset_base.copy({
+  'name': 'Sattelite - Builidng Mapping',
+
+  'train_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train.json',
+  'train_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train/',
+
+  'valid_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test.json',
+  'valid_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test/',
+
+  'class_names': ('building'),
+  'label_map': { 1:  1 }
 })
 
 
@@ -667,17 +667,6 @@ coco_base_config = Config({
 
 # ----------------------- YOLACT v1.0 CONFIGS ----------------------- #
 
-
-yolact_resnet50_cig_butts_config = yolact_resnet50_config.copy({
-    'name': 'yolact_plus_resnet50_building_map',
-    # Dataset stuff
-    'dataset': building_Map_dataset,
-    'num_classes': len(building_Map_dataset.class_names) + 1,
-
-    # Image Size
-    'max_size': 512,
-})
-
 yolact_base_config = coco_base_config.copy({
     'name': 'yolact_base',
 
@@ -791,6 +780,17 @@ yolact_resnet50_pascal_config = yolact_resnet50_config.copy({
         'use_square_anchors': False,
     })
 })
+
+yolact_resnet50_building_map_config = yolact_resnet50_config.copy({
+    'name': 'yolact_plus_resnet50_building_map',
+    # Dataset stuff
+    'dataset': building_Map_dataset,
+    'num_classes': len(building_Map_dataset.class_names) + 1,
+
+    # Image Size
+    'max_size': 512,
+})
+
 
 # ----------------------- YOLACT++ CONFIGS ----------------------- #
 
