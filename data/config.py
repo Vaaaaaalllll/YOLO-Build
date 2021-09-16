@@ -183,6 +183,7 @@ building_Map_dataset = dataset_base.copy({
   'valid_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test/',
 
   'class_names': ('building'),
+  'has_gt': True,
   'label_map': { 1:  1 }
 })
 
@@ -781,7 +782,7 @@ yolact_resnet50_pascal_config = yolact_resnet50_config.copy({
     })
 })
 
-yolact_resnet50_building_map_config = yolact_resnet50_config.copy({
+yolact_im700_building_map_config = yolact_im700_config.copy({
     'name': 'yolact_plus_resnet50_building_map',
     # Dataset stuff
     'dataset': building_Map_dataset,
