@@ -782,7 +782,40 @@ yolact_resnet50_pascal_config = yolact_resnet50_config.copy({
     })
 })
 
+
+###################
+
+yolact_im400_building_map_config = yolact_im400_config.copy({
+    'name': 'yolact_im400_building_map',
+    # Dataset stuff
+    'dataset': building_Map_dataset,
+    'num_classes': len(building_Map_dataset.class_names) + 1,
+
+    # Image Size
+    'max_size': 512,
+})
+
 yolact_im700_building_map_config = yolact_im700_config.copy({
+    'name': 'yolact_im700_building_map',
+    # Dataset stuff
+    'dataset': building_Map_dataset,
+    'num_classes': len(building_Map_dataset.class_names) + 1,
+
+    # Image Size
+    'max_size': 512,
+})
+
+yolact_darknet53_building_map_config = yolact_darknet53_config.copy({
+    'name': 'yolact_darknet53_building_map',
+    # Dataset stuff
+    'dataset': building_Map_dataset,
+    'num_classes': len(building_Map_dataset.class_names) + 1,
+
+    # Image Size
+    'max_size': 512,
+})
+
+yolact_resnet50_building_map_config = yolact_resnet50_config.copy({
     'name': 'yolact_plus_resnet50_building_map',
     # Dataset stuff
     'dataset': building_Map_dataset,

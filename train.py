@@ -261,6 +261,10 @@ def train():
     print('Begin training!')
     print()
     # try-except so you can use ctrl+c to save early and stop training
+
+
+    print(data_loader)
+    exit()
     try:
         for epoch in range(num_epochs):
             # Resume from start_iter
