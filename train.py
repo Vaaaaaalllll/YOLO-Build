@@ -260,19 +260,50 @@ def train():
 
     print('Begin training!')
     print()
+
+
+    #print("#########################")
+    number_count = 0
+    #print("#########################")
+
     # try-except so you can use ctrl+c to save early and stop training
-
-
-    print(data_loader)
-    exit()
     try:
         for epoch in range(num_epochs):
+           # print(num_epochs, " epoch <-----------------------")
             # Resume from start_iter
             if (epoch+1)*epoch_size < iteration:
                 continue
             
             for datum in data_loader:
                 # Stop if we've reached an epoch if we're resuming from start_iter
+
+                #print("#########################")
+
+               # print(type(dataset))
+
+                ##print(type(datum))
+                #
+                #test_case_0_count = 0
+                #for test_case in datum: #2 list inside
+                #    #print(type(test_case)) 
+                #    print("test case 0 done -- ",test_case_0_count)
+                #    test_case_1_count = 0
+                #    for test_case_1 in test_case:
+                #        if test_case_0_count == 1:
+                #            #print(test_case_1)
+                #
+                #            print("test case 1 done -- ",test_case_0_count)
+                #            test_case_2_count = 0
+                #            for test_case_2 in test_case_1:
+                #                print(type(test_case_2)) 
+                #        #print(type(test_case_1)) 
+                #    test_case_0_count = test_case_0_count + 1
+
+                ##print(number_count," <--- count")
+                ##number_count = number_count + 1 #EVERY 10 LOOP NEW OUTPUT [  0]      40 || B: 8.915 | C: 7.533 | M: 11.962 | S: 1.949 | T: 30.359 || ETA: 12 days, 0:12:03 || timer: 0.423
+                #print("#########################")
+
+
                 if iteration == (epoch+1)*epoch_size:
                     break
 
