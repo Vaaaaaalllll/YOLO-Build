@@ -132,10 +132,22 @@ coco_cats = {} # Call prep_coco_cats to fill this
 coco_cats_inv = {}
 color_cache = defaultdict(lambda: {})
 
-def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, mask_alpha=0.45, fps_str=''):
+def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, mask_alpha=0.45, fps_str='', mask_only=False):
     """
     Note: If undo_transform=False then im_h and im_w are allowed to be None.
     """
+
+    #MY CODE
+    # Get sizes of original image
+    height = img.shape[0]
+    width = img.shape[1]
+    channels = img.shape[2]
+
+    # create a blank image with these sizes 
+    white_image = np.zeros((height, width, channels), np.uint8)
+
+    #MY CODE
+
     if undo_transform:
         img_numpy = undo_image_transformation(img, w, h)
         img_gpu = torch.Tensor(img_numpy).cuda()
@@ -222,6 +234,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     # Then draw the stuff that needs to be done on the cpu
     # Note, make sure this is a uint8 tensor or opencv will not anti alias text for whatever reason
     img_numpy = (img_gpu * 255).byte().cpu().numpy()
+    white_image = (img_gpu * 255).byte().cpu().numpy()
 
     if args.display_fps:
         # Draw the text on the CPU
@@ -258,8 +271,10 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
                 cv2.rectangle(img_numpy, (x1, y1), (x1 + text_w, y1 - text_h - 4), color, -1)
                 cv2.putText(img_numpy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
             
-    
-    return img_numpy
+    if mask_only == False:
+        return img_numpy
+    else:
+        return white_image
 
 def prep_benchmark(dets_out, h, w):
     with timer.env('Postprocess'):
@@ -592,12 +607,14 @@ def badhash(x):
     x =  ((x >> 16) ^ x) & 0xFFFFFFFF
     return x
 
-def evalimage(net:Yolact, path:str, save_path:str=None):
+def evalimage(net:Yolact, path:str, save_path:str=None, save_path_mask:str=None):
     frame = torch.from_numpy(cv2.imread(path)).cuda().float()
     batch = FastBaseTransform()(frame.unsqueeze(0))
     preds = net(batch)
 
     img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
+    img_numpy_mask = prep_display(preds, frame, None, None, undo_transform=False, mask_only=True)
+    
     
     if save_path is None:
         img_numpy = img_numpy[:, :, (2, 1, 0)]
@@ -608,6 +625,7 @@ def evalimage(net:Yolact, path:str, save_path:str=None):
         plt.show()
     else:
         cv2.imwrite(save_path, img_numpy)
+        cv2.imwrite(save_path_mask, img_numpy_mask)
 
 def evalimages(net:Yolact, input_folder:str, output_folder:str):
     if not os.path.exists(output_folder):
@@ -618,9 +636,11 @@ def evalimages(net:Yolact, input_folder:str, output_folder:str):
         path = str(p)
         name = os.path.basename(path)
         name = '.'.join(name.split('.')[:-1]) + '.png'
+        name_mask = '.'.join(name.split('.')[:-1]) + '-mask.png'
         out_path = os.path.join(output_folder, name)
+        out_path_mask = os.path.join(output_folder, name_mask)
 
-        evalimage(net, path, out_path)
+        evalimage(net, path, out_path, out_path_mask)
         print(path + ' -> ' + out_path)
     print('Done.')
 
