@@ -114,8 +114,11 @@ def parse_args(argv=None):
     parser.add_argument('--emulate_playback', default=False, dest='emulate_playback', action='store_true',
                         help='When saving a video, emulate the framerate that you\'d get running in real-time mode.')
 
+
     #code 
     parser.add_argument('--mask_img', default=False, type=str2bool,
+                        help='Create Mask img file.')
+    parser.add_argument('--mask_only', default=False, type=str2bool,
                         help='Create Mask img file.')
 
     parser.set_defaults(no_bar=False, display=False, resume=False, output_coco_json=False, output_web_json=False, shuffle=False,
@@ -140,19 +143,23 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     """
     Note: If undo_transform=False then im_h and im_w are allowed to be None.
     """
-
-    # Get sizes of original image
-    height = img.shape[0]
-    width = img.shape[1]
-    channels = img.shape[2]
-
-
     if undo_transform:
         img_numpy = undo_image_transformation(img, w, h)
         img_gpu = torch.Tensor(img_numpy).cuda()
     else:
         img_gpu = img / 255.0
         h, w, _ = img.shape
+
+
+
+    height = img_gpu.shape[0]
+    width = img_gpu.shape[1]
+    channels = img_gpu.shape[2]
+
+    img_mask_numpy = np.zeros((height, width, channels), dtype = "uint8")
+    img_mask = torch.Tensor(img_mask_numpy).cuda()
+
+    
     
     with timer.env('Postprocess'):
         save = cfg.rescore_bbox
@@ -218,7 +225,8 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
             masks_color_summand += masks_color_cumul.sum(dim=0)
 
         img_gpu = img_gpu * inv_alph_masks.prod(dim=0) + masks_color_summand
-        
+        img_mask = img_mask * inv_alph_masks.prod(dim=0) + masks_color_summand
+    
     if args.display_fps:
             # Draw the box for the fps on the GPU
         font_face = cv2.FONT_HERSHEY_DUPLEX
@@ -233,7 +241,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     # Then draw the stuff that needs to be done on the cpu
     # Note, make sure this is a uint8 tensor or opencv will not anti alias text for whatever reason
     img_numpy = (img_gpu * 255).byte().cpu().numpy()
-    img_mask = (masks_color_summand * 255).byte().cpu().numpy()
+    img_mask_numpy = (img_mask * 255).byte().cpu().numpy()
 
     if args.display_fps:
         # Draw the text on the CPU
@@ -241,9 +249,13 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
         text_color = [255, 255, 255]
 
         cv2.putText(img_numpy, fps_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
+        cv2.putText(img_mask_numpy, fps_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
     
     if num_dets_to_consider == 0:
-        return img_numpy
+        if args.mask_img:
+            return img_mask_numpy
+        else:
+            return img_numpy
 
     if args.display_text or args.display_bboxes:
         for j in reversed(range(num_dets_to_consider)):
@@ -253,6 +265,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
 
             if args.display_bboxes:
                 cv2.rectangle(img_numpy, (x1, y1), (x2, y2), color, 1)
+                cv2.rectangle(img_mask_numpy, (x1, y1), (x2, y2), color, 1)
 
             if args.display_text:
                 _class = cfg.dataset.class_names[classes[j]]
@@ -269,11 +282,14 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
 
                 cv2.rectangle(img_numpy, (x1, y1), (x1 + text_w, y1 - text_h - 4), color, -1)
                 cv2.putText(img_numpy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
+
+                cv2.rectangle(img_mask_numpy, (x1, y1), (x1 + text_w, y1 - text_h - 4), color, -1)
+                cv2.putText(img_mask_numpy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
             
-    if not args.mask_img:
-        return img_numpy
+    if args.mask_img:
+        return img_mask_numpy
     else:
-        return [img_numpy,img_mask]
+        return img_numpy
 
 def prep_benchmark(dets_out, h, w):
     with timer.env('Postprocess'):
@@ -606,21 +622,12 @@ def badhash(x):
     x =  ((x >> 16) ^ x) & 0xFFFFFFFF
     return x
 
-def evalimage(net:Yolact, path:str, save_path:str=None, save_path_mask:str=None):
+def evalimage(net:Yolact, path:str, save_path:str=None):
     frame = torch.from_numpy(cv2.imread(path)).cuda().float()
     batch = FastBaseTransform()(frame.unsqueeze(0))
     preds = net(batch)
 
-    result = prep_display(preds, frame, None, None, undo_transform=False)
-
-    if args.mask_img:
-        img_numpy = result[0]
-        img_numpy_mask = result[1]
-        print(type(img_numpy))
-        print(type(img_numpy_mask))
-    else:
-        img_numpy = result
-        print(type(img_numpy))
+    img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
     
     if save_path is None:
         img_numpy = img_numpy[:, :, (2, 1, 0)]
@@ -631,24 +638,26 @@ def evalimage(net:Yolact, path:str, save_path:str=None, save_path_mask:str=None)
         plt.show()
     else:
         cv2.imwrite(save_path, img_numpy)
-        if args.mask_img:
-            cv2.imwrite(save_path_mask, img_numpy_mask)
 
 def evalimages(net:Yolact, input_folder:str, output_folder:str):
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
 
     print()
+    count = 1
+    count_all = len(os.listdir(input_folder))
     for p in Path(input_folder).glob('*'): 
         path = str(p)
         name = os.path.basename(path)
-        name = '.'.join(name.split('.')[:-1]) + '.png'
-        name_mask = '.'.join(name.split('.')[:-1]) + '-mask.png'
-        out_path = os.path.join(output_folder, name)
-        out_path_mask = os.path.join(output_folder, name_mask)
 
-        evalimage(net, path, out_path, out_path_mask)
-        print(path + ' -> ' + out_path)
+        #name = '.'.join(name.split('.')[:-1]) + '.png'
+        name = '.'.join(name.split('.')[:-1]) + '.tif'
+
+        out_path = os.path.join(output_folder, name)
+
+        evalimage(net, path, out_path)
+        print(count , "-" , count_all , " : " , path , ' -> ' , out_path)
+        count = count + 1
     print('Done.')
 
 from multiprocessing.pool import ThreadPool
