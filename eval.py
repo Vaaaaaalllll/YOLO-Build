@@ -114,6 +114,10 @@ def parse_args(argv=None):
     parser.add_argument('--emulate_playback', default=False, dest='emulate_playback', action='store_true',
                         help='When saving a video, emulate the framerate that you\'d get running in real-time mode.')
 
+    #code 
+    parser.add_argument('--mask_img', default=False, type=str2bool,
+                        help='Create Mask img file.')
+
     parser.set_defaults(no_bar=False, display=False, resume=False, output_coco_json=False, output_web_json=False, shuffle=False,
                         benchmark=False, no_sort=False, no_hash=False, mask_proto_debug=False, crop=True, detect=False, display_fps=False,
                         emulate_playback=False)
@@ -132,21 +136,16 @@ coco_cats = {} # Call prep_coco_cats to fill this
 coco_cats_inv = {}
 color_cache = defaultdict(lambda: {})
 
-def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, mask_alpha=0.45, fps_str='', mask_only=False):
+def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, mask_alpha=0.45, fps_str=''):
     """
     Note: If undo_transform=False then im_h and im_w are allowed to be None.
     """
 
-    #MY CODE
     # Get sizes of original image
     height = img.shape[0]
     width = img.shape[1]
     channels = img.shape[2]
 
-    # create a blank image with these sizes 
-    white_image = np.zeros((height, width, channels), np.uint8)
-
-    #MY CODE
 
     if undo_transform:
         img_numpy = undo_image_transformation(img, w, h)
@@ -219,7 +218,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
             masks_color_summand += masks_color_cumul.sum(dim=0)
 
         img_gpu = img_gpu * inv_alph_masks.prod(dim=0) + masks_color_summand
-    
+        
     if args.display_fps:
             # Draw the box for the fps on the GPU
         font_face = cv2.FONT_HERSHEY_DUPLEX
@@ -234,7 +233,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     # Then draw the stuff that needs to be done on the cpu
     # Note, make sure this is a uint8 tensor or opencv will not anti alias text for whatever reason
     img_numpy = (img_gpu * 255).byte().cpu().numpy()
-    white_image = (img_gpu * 255).byte().cpu().numpy()
+    img_mask = (masks_color_summand * 255).byte().cpu().numpy()
 
     if args.display_fps:
         # Draw the text on the CPU
@@ -271,10 +270,10 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
                 cv2.rectangle(img_numpy, (x1, y1), (x1 + text_w, y1 - text_h - 4), color, -1)
                 cv2.putText(img_numpy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
             
-    if mask_only == False:
+    if not args.mask_img:
         return img_numpy
     else:
-        return white_image
+        return [img_numpy,img_mask]
 
 def prep_benchmark(dets_out, h, w):
     with timer.env('Postprocess'):
@@ -612,9 +611,16 @@ def evalimage(net:Yolact, path:str, save_path:str=None, save_path_mask:str=None)
     batch = FastBaseTransform()(frame.unsqueeze(0))
     preds = net(batch)
 
-    img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
-    img_numpy_mask = prep_display(preds, frame, None, None, undo_transform=False, mask_only=True)
-    
+    result = prep_display(preds, frame, None, None, undo_transform=False)
+
+    if args.mask_img:
+        img_numpy = result[0]
+        img_numpy_mask = result[1]
+        print(type(img_numpy))
+        print(type(img_numpy_mask))
+    else:
+        img_numpy = result
+        print(type(img_numpy))
     
     if save_path is None:
         img_numpy = img_numpy[:, :, (2, 1, 0)]
@@ -625,7 +631,8 @@ def evalimage(net:Yolact, path:str, save_path:str=None, save_path_mask:str=None)
         plt.show()
     else:
         cv2.imwrite(save_path, img_numpy)
-        cv2.imwrite(save_path_mask, img_numpy_mask)
+        if args.mask_img:
+            cv2.imwrite(save_path_mask, img_numpy_mask)
 
 def evalimages(net:Yolact, input_folder:str, output_folder:str):
     if not os.path.exists(output_folder):
