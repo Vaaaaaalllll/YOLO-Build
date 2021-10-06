@@ -121,6 +121,11 @@ def parse_args(argv=None):
     parser.add_argument('--mask_only', default=False, type=str2bool,
                         help='Create Mask img file.')
 
+    parser.add_argument('--accept_incompatible', default=False, type=str2bool,
+                        help='Accepts any img size and model config.')
+    parser.add_argument('--img_model_size', default=512, type=int,
+                        help='Model Size require. Must be lower than the Image Size')
+
     parser.set_defaults(no_bar=False, display=False, resume=False, output_coco_json=False, output_web_json=False, shuffle=False,
                         benchmark=False, no_sort=False, no_hash=False, mask_proto_debug=False, crop=True, detect=False, display_fps=False,
                         emulate_playback=False)
@@ -623,21 +628,82 @@ def badhash(x):
     return x
 
 def evalimage(net:Yolact, path:str, save_path:str=None):
-    frame = torch.from_numpy(cv2.imread(path)).cuda().float()
-    batch = FastBaseTransform()(frame.unsqueeze(0))
-    preds = net(batch)
-
-    img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
+    hold_frame = cv2.imread(path)
     
-    if save_path is None:
-        img_numpy = img_numpy[:, :, (2, 1, 0)]
+     
+    #FOR INCOMPATIBILITY
+    if args.accept_incompatible: #and args.img_model_size != 512:
+        hold_modelSize = args.img_model_size
 
-    if save_path is None:
-        plt.imshow(img_numpy)
-        plt.title(path)
-        plt.show()
+        holdImg_Y, holdImg_X, holdImg_channel = hold_frame.shape
+
+        #get loop num
+        loop_num = int((holdImg_Y/hold_modelSize) * (holdImg_X/hold_modelSize))
+        
+        hold_locX = 0
+        hold_locY = 0
+        hold_x = hold_modelSize
+        hold_y = hold_modelSize
+        com_hold = []
+
+        #print(holdImg_Y, " = ",holdImg_X)
+        #print(hold_modelSize)
+        #print(loop_num)
+
+        #print()
+        #print(hold_frame.shape)
+
+        if holdImg_Y == hold_modelSize:
+            print("MODEL SIZE AND IMG SIZE ARE THE SAME")
+            print("SET INCOMPATIBILITY TO FALSE")
+            exit()
+
+        for x in range(loop_num):
+
+            #print("here:",x)
+            
+            #print(hold_locY,":",hold_y," -- ",hold_locX,":",hold_x)
+            hold_img = hold_frame[hold_locY:hold_y, hold_locX:hold_x]
+
+            frame = torch.from_numpy(hold_frame).cuda().float()
+            batch = FastBaseTransform()(frame.unsqueeze(0))
+            preds = net(batch)
+            img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
+
+            com_hold.append(img_numpy)
+
+            hold_locX = hold_locX + hold_modelSize
+
+            if hold_locX == holdImg_X:
+                hold_locX = 0
+                hold_locY = hold_locY + hold_modelSize
+
+        #print("con H")
+        im_h1 = cv2.hconcat( [com_hold[0], com_hold[1]] )
+        im_h2 = cv2.hconcat( [com_hold[2], com_hold[3]] )
+
+        #print("con V")
+        im_v = cv2.vconcat([im_h1, im_h2])
+
+        #print("saving IMG")
+        cv2.imwrite(save_path, im_v)
+
+
     else:
-        cv2.imwrite(save_path, img_numpy)
+        frame = torch.from_numpy(hold_frame).cuda().float()
+        batch = FastBaseTransform()(frame.unsqueeze(0))
+        preds = net(batch)
+        img_numpy = prep_display(preds, frame, None, None, undo_transform=False)
+
+        if save_path is None:
+            img_numpy = img_numpy[:, :, (2, 1, 0)]
+
+        if save_path is None:
+            plt.imshow(img_numpy)
+            plt.title(path)
+            plt.show()
+        else:
+            cv2.imwrite(save_path, img_numpy)
 
 def evalimages(net:Yolact, input_folder:str, output_folder:str):
     if not os.path.exists(output_folder):
@@ -646,6 +712,8 @@ def evalimages(net:Yolact, input_folder:str, output_folder:str):
     print()
     count = 1
     count_all = len(os.listdir(input_folder))
+    if args.accept_incompatible:
+        print("INCOMPATIBILITY MODE TRUE")
     for p in Path(input_folder).glob('*'): 
         path = str(p)
         name = os.path.basename(path)
