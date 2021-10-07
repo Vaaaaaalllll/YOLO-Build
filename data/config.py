@@ -176,11 +176,21 @@ pascal_sbd_dataset = dataset_base.copy({
 building_Map_dataset = dataset_base.copy({
   'name': 'Sattelite - Builidng Mapping',
 
-  'train_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train.json',
-  'train_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train/',
+  #'train_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train.json',
+  #'train_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/train/',
 
-  'valid_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test.json',
-  'valid_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test/',
+  #'valid_info': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test.json',
+  #'valid_images': '/content/drive/MyDrive/instance_segmentation/building_detection/building/test/',
+
+
+
+  'train_info': '/content/drive/MyDrive/instance_segmentation/building_detection/new_256/building/train.json',
+  'train_images': '/content/drive/MyDrive/instance_segmentation/building_detection/new_256/building/train/',
+
+  'valid_info': '/content/drive/MyDrive/instance_segmentation/building_detection/new_256/building/test.json',
+  'valid_images': '/content/drive/MyDrive/instance_segmentation/building_detection/new_256/building/test/',
+
+
 
   'class_names': ('building'),
   'has_gt': True,
@@ -851,7 +861,7 @@ yolact_plus_base_config = yolact_base_config.copy({
 })
 
 yolact_plus_resnet50_config = yolact_plus_base_config.copy({
-    'name': 'yolact_plus_resnet50',
+    'name': 'yolact_plus_plus_resnet50_building_map',
 
     'backbone': resnet50_dcnv2_backbone.copy({
         'selected_layers': list(range(1, 4)),
@@ -868,6 +878,16 @@ yolact_plus_resnet50_config = yolact_plus_base_config.copy({
 
 yolact_resnet50_plus_building_map_config = yolact_plus_resnet50_config.copy({
     'name': 'yolact_plus_resnet50_building_map',
+    # Dataset stuff
+    'dataset': building_Map_dataset,
+    'num_classes': len(building_Map_dataset.class_names) + 1,
+
+    # Image Size
+    'max_size': 512,
+})
+
+yolact_resnet101_plus_plus_building_map_config = yolact_base_config.copy({
+    'name': 'yolact_resnet101_plus_building_map',
     # Dataset stuff
     'dataset': building_Map_dataset,
     'num_classes': len(building_Map_dataset.class_names) + 1,
